@@ -1,0 +1,14 @@
+[versions]
+gson = "2.10.1"
+
+shadow = "7.1.2"
+proguard = "7.3.0"
+machete = "2.0.0"
+
+[libraries]
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+
+[plugins]
+shadow = { id = "com.github.johnrengelman.shadow", version.ref = "shadow" }
+proguard = { id = "com.guardsquare.proguard", version.ref = "proguard" }
+machete = { id = "io.github.p03w.machete", version.ref = "machete" }

@@ -1,0 +1,60 @@
+plugins {
+    id 'application'
+	//alias libs.plugins.proguard
+	alias libs.plugins.machete
+}
+
+archivesBaseName = "quilt_server_bootstrap"
+// I don't want versioning yet :P
+//version = "0.1.0+ennui"
+
+repositories {
+    mavenCentral()
+    // maven { url = 'https://maven.quiltmc.org/repository/release' }
+}
+
+configurations {
+	include
+}
+
+dependencies {
+	implementation project(path: ':gson', configuration: 'shadow')
+	include project(path: ':gson', configuration: 'shadow')
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 17
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_17
+	targetCompatibility = JavaVersion.VERSION_17
+}
+
+jar {
+	from(project.configurations.include) {
+		into 'META-INF/jars'
+	}
+    manifest {
+        attributes(
+            'Main-Class': 'org.quiltmc.quilt_server_bootstrap.Main',
+            'Launcher-Agent-Class': 'org.quiltmc.quilt_server_bootstrap.Agent'
+        )
+    }
+}
+
+machete {
+	// I am Ennui, you know the gist :P
+	json.enabled = false
+
+	/* TODO - Decide whenever these are a good idea or not
+	lvtStriping.enabled = true
+	sourceFileStriping.enabled = true
+	*/
+}
+
+application {
+	executableDir = "run"
+    mainClass = 'org.quiltmc.quilt_server_bootstrap.Main'
+}

@@ -1,0 +1,37 @@
+plugins {
+	id 'java-library'
+	alias libs.plugins.shadow
+	//alias libs.plugins.proguard
+}
+
+archivesBaseName = "gson_wrapper"
+
+repositories {
+    mavenCentral()
+    // maven { url = 'https://maven.quiltmc.org/repository/release' }
+}
+
+dependencies {
+	implementation libs.gson
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 17
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_17
+	targetCompatibility = JavaVersion.VERSION_17
+}
+
+jar {
+	enabled = false
+	archiveClassifier.set('shadowless')
+}
+
+shadowJar {
+	enabled = true
+	archiveClassifier.set('')
+	relocate 'com.google.gson', 'qsb.gson'
+}
