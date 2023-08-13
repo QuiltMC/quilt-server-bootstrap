@@ -1,3 +1,1 @@
 rootProject.name = 'quilt-server-bootstrap'
-
-include 'gson'

@@ -1,25 +1,22 @@
 plugins {
     id 'application'
+	alias libs.plugins.shadow
 	//alias libs.plugins.proguard
-	alias libs.plugins.machete
 }
 
-archivesBaseName = "quilt_server_bootstrap"
-// I don't want versioning yet :P
-//version = "0.1.0+ennui"
+base {
+	archivesName = "quilt_server_bootstrap"
+}
+
+version = "0.1.0+ennui"
 
 repositories {
     mavenCentral()
-    // maven { url = 'https://maven.quiltmc.org/repository/release' }
-}
-
-configurations {
-	include
+    maven { url = 'https://maven.quiltmc.org/repository/release' }
 }
 
 dependencies {
-	implementation project(path: ':gson', configuration: 'shadow')
-	include project(path: ':gson', configuration: 'shadow')
+	shadow libs.quilt.parsers.json
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -33,9 +30,6 @@ java {
 }
 
 jar {
-	from(project.configurations.include) {
-		into 'META-INF/jars'
-	}
     manifest {
         attributes(
             'Main-Class': 'org.quiltmc.quilt_server_bootstrap.Main',
@@ -44,17 +38,7 @@ jar {
     }
 }
 
-machete {
-	// I am Ennui, you know the gist :P
-	json.enabled = false
-
-	/* TODO - Decide whenever these are a good idea or not
-	lvtStriping.enabled = true
-	sourceFileStriping.enabled = true
-	*/
-}
-
 application {
 	executableDir = "run"
-    mainClass = 'org.quiltmc.quilt_server_bootstrap.Main'
+    mainClass = 'org.quiltmc.quilt_server_bootstrap.AttemptSomething'
 }

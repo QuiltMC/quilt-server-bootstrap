@@ -15,6 +15,7 @@ public class Agent {
     public static void agentmain(String agentArgs, Instrumentation inst) throws Throwable {
         instrumentation = inst;
 		// TODO - Replace me with internal JAR reading shenanigans!
+		/*
 		var stream = Agent.class.getResourceAsStream("/META-INF/jars/gson_wrapper.jar");
 		var file = BOOTSTRAP_CACHE_PATH.resolve("gson_wrapper.jar").toFile();
 		if (!file.exists()) {
@@ -24,6 +25,7 @@ public class Agent {
 			stream.transferTo(outputStream);
 		}
 		addJar(BOOTSTRAP_CACHE_PATH.resolve("gson_wrapper.jar"));
+		 */
 	}
 
     public static void addJar(Path path) throws IOException {

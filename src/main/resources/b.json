@@ -1,0 +1,16 @@
+{
+	"loader": {
+		"separator": ".",
+		"build": 10,
+		"maven": "org.quiltmc:quilt-loader:0.17.5-beta.10",
+		"version": "0.17.5-beta.10"
+	},
+	"hashed": {
+		"maven": "org.quiltmc:hashed:1.19.2",
+		"version": "1.19.2"
+	},
+	"intermediary": {
+		"maven": "net.fabricmc:intermediary:1.19.2:v2",
+		"version": "1.19.2"
+	}
+}

@@ -1,12 +1,14 @@
 [versions]
 gson = "2.10.1"
 
-shadow = "7.1.2"
-proguard = "7.3.0"
+shadow = "8.1.1"
+proguard = "7.3.2"
 machete = "2.0.0"
+quilt_parsers = "0.2.1"
 
 [libraries]
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+quilt_parsers_json = { module = "org.quiltmc.parsers:json", version.ref = "quilt_parsers" }
 
 [plugins]
 shadow = { id = "com.github.johnrengelman.shadow", version.ref = "shadow" }
