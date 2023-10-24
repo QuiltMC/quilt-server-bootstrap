@@ -9,7 +9,7 @@ base {
 	archivesName = 'quilt_server_bootstrap'
 }
 
-version = '0.1.0+ennui'
+version = '0.1.0'
 
 repositories {
     mavenCentral()
