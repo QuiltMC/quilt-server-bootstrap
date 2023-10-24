@@ -1,14 +1,15 @@
 plugins {
-    id 'application'
+    id 'java'
+    id 'java-library'
 	alias libs.plugins.shadow
 	//alias libs.plugins.proguard
 }
 
 base {
-	archivesName = "quilt_server_bootstrap"
+	archivesName = 'quilt_server_bootstrap'
 }
 
-version = "0.1.0+ennui"
+version = '0.1.0+ennui'
 
 repositories {
     mavenCentral()
@@ -16,7 +17,7 @@ repositories {
 }
 
 dependencies {
-	shadow libs.quilt.parsers.json
+	implementation libs.quilt.parsers.json
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -38,7 +39,25 @@ jar {
     }
 }
 
-application {
-	executableDir = "run"
-    mainClass = 'org.quiltmc.quilt_server_bootstrap.AttemptSomething'
+shadowJar {
+	archiveClassifier = null
+	relocate 'org.quiltmc.parsers.json', 'qsb.quilt.parsers.json'
+	minimize()
+}
+
+tasks.named('build').configure {
+	dependsOn tasks.named('shadowJar')
+}
+
+import java.nio.file.Files
+
+tasks.register('run', JavaExec) {
+	dependsOn tasks.named('shadowJar')
+	classpath = files(tasks.named('shadowJar'))
+	workingDir = "${project.projectDir}/run/"
+	args '--nogui'
+
+	if (Files.notExists(getWorkingDir().toPath())) {
+		Files.createDirectory(getWorkingDir().toPath())
+	}
 }

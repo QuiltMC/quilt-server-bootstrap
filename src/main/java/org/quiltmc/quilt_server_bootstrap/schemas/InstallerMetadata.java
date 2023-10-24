@@ -25,6 +25,7 @@ public record InstallerMetadata(
 		Libraries libraries
 	) {
 		public record Libraries(
+			List<Library> client,
 			List<Library> common,
 			List<Library> server
 		) {}

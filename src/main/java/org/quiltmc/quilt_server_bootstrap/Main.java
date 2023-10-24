@@ -1,5 +1,5 @@
 package org.quiltmc.quilt_server_bootstrap;
-/*
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -9,7 +9,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.net.URI;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -18,31 +17,34 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.security.Security;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.zip.ZipFile;
 
+import org.quiltmc.parsers.json.JsonReader;
+import org.quiltmc.parsers.json.JsonWriter;
+import org.quiltmc.quilt_server_bootstrap.json.EnnyJson;
 import org.quiltmc.quilt_server_bootstrap.schemas.InstallerMetadata;
-import qsb.gson.Gson;
-import qsb.gson.GsonBuilder;
-import qsb.gson.JsonParser;
 
 public class Main {
 	public static final Path BOOTSTRAP_CACHE_PATH = Path.of("./.quilt/bootstrap/");
 	public static final boolean KEEP_BUNDLER = false;
 	public static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
-	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
 	// FIXME - i literally keep eating exceptions with a blanket Throwable... Fix that!
 	public static void main(String[] args) throws Exception {
-		new Main().download();
+		new Main().download(args);
 	}
 
-	public void download() throws Exception {
+	public void download(String[] minecraftArgs) throws Exception {
 		var pathQJ = Main.class.getResourceAsStream("/a.json");
-
-		var installerMetadata = GSON.fromJson(new InputStreamReader(pathQJ, StandardCharsets.UTF_8), InstallerMetadata.class);
+		var installerMetadata = EnnyJson.createInstallerMetadata(new InputStreamReader(pathQJ, StandardCharsets.UTF_8));
 		var list = new ArrayList<InstallerMetadata.Library>();
 		list.addAll(installerMetadata.launcherMeta().libraries().common());
 		list.addAll(installerMetadata.launcherMeta().libraries().server());
@@ -58,11 +60,12 @@ public class Main {
 					+ "/" + splitDep[2];
 			var path = pathFolder
 					+ "/" + splitDep[1]
-					+ "-" + splitDep[2] + (splitDep.length == 4 ? "-" + splitDep[3] : "")
+					+ "-" + splitDep[2]
+					+ (splitDep.length == 4 ? "-" + splitDep[3] : "")
 					+ ".jar";
 			var uri = library.url() + path;
 			Files.createDirectories(Path.of("./libraries/" + pathFolder));
-			libraries.add(new Library(URI.create(uri), "./libraries/" + path));
+			libraries.add(new Library(URI.create(uri), URI.create(uri + ".sha512"), "./libraries/" + path));
 		}
 
 		// Ensure that our bootstrap cache folder exists
@@ -70,35 +73,61 @@ public class Main {
 
 		var futures = new ArrayList<CompletableFuture<?>>();
 		var urls = new ArrayList<URL>();
+		var sha512map = new HashMap<Path, String>();
 
 		for (var library : libraries) {
 			var path = Path.of(library.path());
 			urls.add(path.toUri().toURL());
+
+			System.out.println("Downloading hash of " + library.uri());
+			var sha512request = HttpRequest.newBuilder(library.sha512uri()).GET().build();
+			var sha512future = HTTP_CLIENT.sendAsync(sha512request, BodyHandlers.ofString())
+				.thenApply(HttpResponse::body)
+				.thenAccept(sha512 -> sha512map.put(path, sha512));
+
 			if (!Files.exists(path)) {
 				System.out.println("Downloading " + library.uri());
 				var request = HttpRequest.newBuilder(library.uri()).GET().build();
 				var future = HTTP_CLIENT.sendAsync(request, BodyHandlers.ofFile(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE))
 					.thenApply(HttpResponse::body)
 					.thenAccept(pathy -> {});
+
 				futures.add(future);
 			}
+			futures.add(sha512future);
 		}
 
 		var futureArray = futures.toArray(new CompletableFuture[futures.size()]);
 		var bigFuture = CompletableFuture.allOf(futureArray);
 
 		bigFuture.thenAccept(path -> {
-			if (futures.size() != 0) {
+			if (!futures.isEmpty()) {
 				System.out.println("Downloaded all the Quilt Loader libraries!");
 			}
 
 			try {
+				// TODO - Even with Java 17 code here? We can do better
+				System.out.println(Arrays.toString(Security.getProviders()));
+				var digest = MessageDigest.getInstance("SHA-512");
+				var hexier = HexFormat.of();
 				for (var library : libraries) {
+					digest.reset();
+					var libPath = Path.of(library.path());
+					var output = digest.digest(Files.readAllBytes(libPath));
+
+					var sha512 = sha512map.get(libPath);
+					var hash = hexier.formatHex(output);
+
+					System.out.println(sha512 + " - " + hash);
+
+					if (!sha512.equals(hash)) {
+						throw new Exception("uh oh hashes didn't match!");
+					}
 					Agent.addJar(Path.of(library.path()));
 				}
 
 				this.loadBundler();
-				this.run();
+				this.run(minecraftArgs);
 			} catch (Throwable e) {
 				e.printStackTrace();
 			}
@@ -127,11 +156,11 @@ public class Main {
 		boolean isComplete = true;
 
 		if (Files.exists(jsonPath)) {
-			var json = JsonParser.parseReader(new FileReader(jsonPath.toFile())).getAsJsonObject();
-			var array = json.get("libraries").getAsJsonArray();
+			var json = EnnyJson.parse(JsonReader.json(new FileReader(jsonPath.toFile()))).getMap();
+			var array = json.get("libraries").asList();
 
 			for (var element : array) {
-				var libraryPath = Path.of(element.getAsString());
+				var libraryPath = Path.of(element.asString());
 				if (!Files.exists(libraryPath)) {
 					isComplete = false;
 				} else {
@@ -139,7 +168,7 @@ public class Main {
 				}
 			}
 
-			versionPath = Path.of(json.get("version").getAsString());
+			versionPath = Path.of(json.get("version").asString());
 			pathList.add(versionPath);
 		} else {
 			isComplete = false;
@@ -203,7 +232,7 @@ public class Main {
 
 		zip.close();
 
-		var writer = GSON.newJsonWriter(new FileWriter(BOOTSTRAP_CACHE_PATH.resolve("vanilla_bundler_extraction.json").toFile()));
+		var writer = JsonWriter.json(new FileWriter(BOOTSTRAP_CACHE_PATH.resolve("vanilla_bundler_extraction.json").toFile()));
 
 		writer.beginObject()
 			.name("libraries")
@@ -223,7 +252,7 @@ public class Main {
 
 	public void downloadBundler() throws Throwable {
 		var bundlerPath = BOOTSTRAP_CACHE_PATH.resolve("server.jar");
-		var bundlerLink = "https://piston-data.mojang.com/v1/objects/f69c284232d7c7580bd89a5a4931c3581eae1378/server.jar";
+		var bundlerLink = "https://piston-data.mojang.com/v1/objects/84194a2f286ef7c14ed7ce0090dba59902951553/server.jar";
 
 		System.out.println("Downloading the server JAR");
 		// This is a boring sync download since we have nothing to do simultaneously at this point
@@ -233,17 +262,16 @@ public class Main {
 		System.out.println("Downloaded the server JAR!");
 	}
 
-	public void run() throws Throwable {
+	public void run(String[] minecraftArgs) throws Throwable {
 		var classLoader = ClassLoader.getSystemClassLoader();
-
-		var classy = Class.forName("org.quiltmc.loader.impl.launch.knot.KnotServer", true, classLoader);
-		var handle = MethodHandles.lookup().findStatic(classy, "main", MethodType.methodType(Void.TYPE, String[].class)).asFixedArity();
-		handle.invoke(new String[] {});
+		var klass = Class.forName("org.quiltmc.loader.impl.launch.knot.KnotServer", true, classLoader);
+		var handle = MethodHandles.lookup().findStatic(klass, "main", MethodType.methodType(Void.TYPE, String[].class)).asFixedArity();
+		handle.invoke(minecraftArgs);
 	}
 
 	public record Library(
 		URI uri,
+		URI sha512uri,
 		String path
 	) {}
 }
-*/
